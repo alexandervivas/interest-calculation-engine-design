@@ -1,0 +1,17 @@
+# Build Artifacts
+build/
+.gradle/
+out/
+target/
+
+# Documentation (Junie doesn't need to read the architectural diagrams constantly)
+docs/images/
+
+# Sensitive / Local Config
+.env
+secrets.yaml
+*.jks
+
+# Logs & Dumps
+*.log
+*.hprof
