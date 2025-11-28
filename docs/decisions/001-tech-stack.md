@@ -1,7 +1,12 @@
-# AI & Agentic Opportunities
+# ADR-001: Technology Stack Selection
 
-| ID | Priority | Name | Description | Success Metric |
-| :--- | :--- | :--- | :--- | :--- |
-| **AI-1** | **Should** | **Pre-Flight Simulation Agent** | An agent that takes a proposed configuration change (e.g., rate hike) and runs a simulation against 10k sample accounts to forecast financial impact. | Forecast Variance < 5% vs Production. |
-| **AI-2** | **Could** | **Anomaly Detection Sidecar** | An unsupervised model (Isolation Forest) reading the output stream to detect "Black Swan" math errors (e.g., massive negative interest) in real-time. | Detection Latency < 100ms. False Positive < 0.1%. |
-| **AI-3** | **Could** | **Natural Language Auditor (RAG)** | A support tool allowing non-tech staff to query calculation traces using natural language (e.g., "Explain the adjustment on Jan 1"). | Correct explanation path returned for 90% of queries. |
+* **Status:** Accepted
+* **Date:** 2024-XX-XX
+* **Context:** We need a language and runtime capable of high-throughput math, complex domain modeling, and concurrent I/O (DB/Kafka).
+* **Decision:**
+    * **Language:** Kotlin.
+    * **Runtime:** JVM 21+ (utilizing Virtual Threads / Project Loom).
+    * **Framework:** Spring Boot 3.2+ (or Micronaut) with minimal overhead.
+* **Consequences:**
+    * **Positive:** Kotlin provides type safety and null safety for domain logic. Virtual Threads allow writing imperative, readable code that performs like non-blocking Reactive code.
+    * **Negative:** JVM startup time (mitigated by long-running batch processes).
