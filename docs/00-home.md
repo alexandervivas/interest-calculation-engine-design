@@ -12,6 +12,7 @@ The **Core Interest Engine (CIE)** is a specialized high-throughput financial sy
 * **Architecture:** Event-Driven Kappa Architecture (Stream-first) with local state snapshots.
 * **Infrastructure:** Kubernetes (K8s), KEDA, Kafka (Events), PostgreSQL (Config), Apache Pinot/RocksDB (State).
 * **Sharding:** 1,024 static partitions aligned by `hash(account_id)`.
+* **Messaging Standard:** CloudEvents 1.0.2 (JSON Structured Mode).
 
 ## 3. Navigation
 * [Requirements](./requirements/) - Functional, Non-Functional, and AI goals.

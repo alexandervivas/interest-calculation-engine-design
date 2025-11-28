@@ -37,8 +37,11 @@ C4Container
     
     Rel(post, kafka, "Publish: interest-commands", "Transactional Producer")
 ```
+## 3. Interface Standards
+* **Async API:** CloudEvents 1.0.2.
+* **ID Format:** UUID v7 (Time-sortable) for all Event IDs.
 
-## 3. Component Responsibilities
+## 4. Component Responsibilities
 * **Ingestion Service**: Responsible for "De-noising" the ledger stream. It converts thousands of raw transactions into a single "End-of-Day Balance" record per account per day.
 * **Calculation Core**: Stateless logic. Input: `[History, Rules]`. Output: `[Accrual, Adjustment]`.
 * **State Store**: A specialized store (Pinot or partitioned Postgres) designed to answer "What was the balance of Account X on Day Y?" in < 10ms.
