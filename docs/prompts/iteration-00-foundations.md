@@ -7,32 +7,49 @@
 
 ## 1. Infrastructure Bootstrapping (Agent: Aider)
 
-**Context:** We are initializing the repository. We need the container runtime and automation scripts before we write application code.
+**Context:** We are initializing the repository. We need the container runtime and automation scripts.
 
 **Prompt:**
 ```text
-You are an expert DevOps engineer. We are building a high-throughput financial system called "Core Interest Engine".
+You are an expert DevOps engineer. We are building a high-throughput financial system.
 
-Please scaffold the infrastructure for Iteration 0.
+Please scaffold the infrastructure for Iteration 0 with a focus on "Local Development" efficiency.
 
 1. **Docker Compose:**
-   Create a `docker-compose.yml` at the root with the following services:
-   - `postgres`: Use image `postgres:16-alpine`. Expose port 5432. Set environment `POSTGRES_USER=user`, `POSTGRES_PASSWORD=password`, `POSTGRES_DB=interest_db`. Add a healthcheck.
-   - `zookeeper`: Use `confluentinc/cp-zookeeper:7.5.0`. Environment: `ZOOKEEPER_CLIENT_PORT=2181`.
-   - `kafka`: Use `confluentinc/cp-kafka:7.5.0`. Depends on zookeeper. Expose port 9092. Environment: `KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181`, `KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092`.
-   - `schema-registry`: Use `confluentinc/cp-schema-registry:7.5.0`. Depends on kafka. Expose port 8081. Environment: `SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS=kafka:9092`.
+   Create a `docker-compose.yml` at the root:
+   - `postgres`: Image `postgres:16-alpine`. Port 5432. Env: `POSTGRES_USER=user`, `POSTGRES_PASSWORD=password`, `POSTGRES_DB=interest_db`.
+   - `zookeeper`: Image `confluentinc/cp-zookeeper:7.5.0`.
+   - `kafka`: Image `confluentinc/cp-kafka:7.5.0`.
+     - Depends on `zookeeper`.
+     - Env: `KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"`. (We will create them explicitly).
+     - Env: `KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1`.
+   - `schema-registry`: Use `confluentinc/cp-schema-registry:7.5.0`. Depends on kafka. Expose port 8081.
+   - `init-kafka`: Image `confluentinc/cp-kafka:7.5.0`.
+     - Depends on `kafka`.
+     - Entrypoint: A shell script that runs:
+       ```bash
+       # Default to 16 partitions for local dev (Production will be 1024)
+       PARTITIONS=${KAFKA_PARTITION_COUNT:-16}
+       echo "Creating topics with $PARTITIONS partitions..."
+       cub kafka-ready -b kafka:9092 1 20
+       kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions $PARTITIONS --replication-factor 1 --topic tx-events
+       kafka-topics --create --if-not-exists --bootstrap-server kafka:9092 --partitions $PARTITIONS --replication-factor 1 --topic interest-events
+       ```
 
-2. **Automation:**
+2. **Environment Config:**
+   - Create a `.env` file at root with `KAFKA_PARTITION_COUNT=16`.
+
+3. **Automation:**
    Create a `Makefile` at the root with these phony targets:
    - `infra-up`: Runs `docker compose up -d`
    - `infra-down`: Runs `docker compose down`
    - `infra-logs`: Runs `docker compose logs -f`
    - `clean`: Removes build artifacts (gradle clean).
 
-3. **Git Configuration:**
+4. **Git Configuration:**
    Create a `.gitignore` suitable for a Kotlin/IntelliJ/Gradle/Docker project. Ensure `.idea`, `build/`, and `.gradle` are ignored.
 
-4. **Validation:**
+5. **Validation:**
    Run `docker compose config` to verify the syntax is valid.
 
 ```

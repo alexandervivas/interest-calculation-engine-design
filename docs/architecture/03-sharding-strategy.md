@@ -7,10 +7,17 @@ Processing **100M accounts** within a 4-hour window requires parallel processing
 
 We utilize a **Deterministic Partitioning Model** based on the Account ID.
 
-### 2.1 The Magic Number: 1,024
-We divide the entire account universe into **1,024 Logical Partitions**.
-* **Routing Function:** `PartitionID = Hash(AccountID) % 1024`
+### 2.1 The Magic Number: 1,024 (Variable)
+We divide the entire account universe into **N Logical Partitions**.
+* **Routing Function:** `PartitionID = Hash(AccountID) % PartitionCount`
 * **Invariant:** All data for `Account A` (transactions, balance history, accrual logs) always resides in the same partition.
+
+| Environment | Partition Count | Rationale |
+| :--- | :--- | :--- |
+| **Production** | **1,024** | Supports ~100M accounts (~100k/partition). Allows scaling to 1,024 consumers. |
+| **Local / CI** | **16** | Reduces overhead (RAM/CPU/File Descriptors) on developer machines. |
+
+> **Note:** The application reads this value from the `SHARD_COUNT` environment variable to ensure the Hashing logic matches the Database topology.
 
 ### 2.2 Topology Mapping
 

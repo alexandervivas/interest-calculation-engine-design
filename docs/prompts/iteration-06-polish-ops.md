@@ -47,6 +47,9 @@ You are a Cloud Engineer. Generate Kubernetes Manifests.
    - Replicas: 2.
    - Image: `core-interest-engine:latest`.
    - Resources: Requests (CPU: 500m, RAM: 1Gi), Limits (CPU: 2000m, RAM: 2Gi).
+   - **Environment Variables:**
+     - `SHARD_COUNT`: Value **"1024"** (Critical: Overrides the local default of 16).
+     - `KAFKA_PARTITION_COUNT`: Value **"1024"**.
    - Probes:
      - Liveness: HTTP GET `/actuator/health/liveness` on port 8080.
      - Readiness: HTTP GET `/actuator/health/readiness` on port 8080.

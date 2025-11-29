@@ -17,39 +17,51 @@
 You are a DevOps/Backend Engineer. We are adding the Persistence Layer.
 
 1. **Gradle Dependencies:**
-   - Update `build.gradle.kts` to add:
-     - `implementation("org.postgresql:postgresql:42.7.1")`
-     - `implementation("com.zaxxer:HikariCP:5.1.0")`
-     - `implementation("org.flywaydb:flyway-core:10.0.0")`
-     - `testImplementation("org.testcontainers:postgresql:1.19.3")`
-     - `testImplementation("org.testcontainers:junit-jupiter:1.19.3")`
+   - Add Postgres, HikariCP, Flyway, and Testcontainers dependencies to `build.gradle.kts`.
 
 2. **Flyway Setup:**
-   - Create the directory structure: `src/main/resources/db/migration`.
-   - Configure a `DataSourceConfig` class (or standard Spring Boot application.yml if we are using Spring Boot - assume manual config if pure Kotlin, or Spring Boot if we are using it. *Assumption: We are using Spring Boot as per Iteration 0.*)
-   - Ensure application.properties/yml has the datasource url, user, password placeholders.
+   - We need to inject the shard count into the SQL.
+   - In `application.yml` (or `application.properties`), configure Flyway placeholders:
+     - `spring.flyway.placeholders.shardCount: ${SHARD_COUNT:16}`
+   - This defaults to 16 for local dev.
 
 3. **Schema Definition (V1):**
-   Create `src/main/resources/db/migration/V1__initial_schema.sql`.
-   
-   **Table 1: `product_config`**
-   - `product_id` (VARCHAR, PK)
-   - `effective_date` (DATE, PK) - (Composite PK to allow versioning)
-   - `version` (INT)
-   - `config_json` (JSONB) - Stores the Tiering rules
-   - `created_at` (TIMESTAMP)
+   - Create the `product_config` table (standard columns: product_id, effective_date, config_json, etc).
+   - Create the `daily_positions` table using the placeholder for the partition logic.
 
-   **Table 2: `daily_positions` (The Core Ledger State)**
-   - `account_id` (VARCHAR NOT NULL)
-   - `value_date` (DATE NOT NULL)
-   - `balance_amount` (DECIMAL(19, 9) NOT NULL)
-   - `accrued_interest` (DECIMAL(19, 9) NOT NULL)
-   - `partition_id` (INT GENERATED ALWAYS AS (hashtext(account_id) % 1024) STORED)
-   - Primary Key: `(partition_id, account_id, value_date)`
-   - Note: Include the `PARTITION BY LIST (partition_id)` syntax but just create a `default` partition for now to keep it runnable locally without creating 1024 tables yet.
-   - `CREATE TABLE daily_positions_default PARTITION OF daily_positions DEFAULT;`
+   **Dynamic SQL Pattern:**
+
+   ```sql
+      -- Parent Table
+      CREATE TABLE daily_positions (
+         account_id TEXT NOT NULL,
+         value_date DATE NOT NULL,
+         balance_amount DECIMAL(19, 9) NOT NULL,
+         accrued_interest DECIMAL(19, 9) NOT NULL,
+         -- Inject the variable here. If placeholder is 16, this becomes % 16
+         partition_id INT GENERATED ALWAYS AS (hashtext(account_id) % ${shardCount}) STORED,
+         PRIMARY KEY (partition_id, account_id, value_date)
+      ) PARTITION BY LIST (partition_id);
+
+      -- Generate Child Tables Loop
+      DO $$
+      DECLARE
+         shard_count INT := ${shardCount};
+         i INT;
+      BEGIN
+         -- Loop from 0 to (shard_count - 1)
+         FOR i IN 0..(shard_count - 1) LOOP
+            EXECUTE format('CREATE TABLE daily_positions_p%s PARTITION OF daily_positions FOR VALUES IN (%s)', i, i);
+         END LOOP;
+      END $$;
+      
+      -- Default Partition (Safety net)
+      CREATE TABLE daily_positions_default PARTITION OF daily_positions DEFAULT;
+
+   ```sql
 
 4. **Verification:**
+   - Ensure the build runs. When connected to the local DB, you should see 16 `daily_positions_pX` tables.
    - Provide a command to run `./gradlew flywayMigrate` (if plugin is added) or ensuring the app boot triggers it.
 
 ```
