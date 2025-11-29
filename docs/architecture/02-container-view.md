@@ -9,33 +9,36 @@ The system follows a **Stream-First (Kappa) Architecture** with local state opti
 
 ```mermaid
 C4Container
-    title Container Diagram - Core Interest Engine
+    title Container Diagram - Core Interest Engine (Refined)
 
-    Container_Boundary(cie_boundary, "Interest Engine Cluster") {
+    Container_Boundary(cie_boundary, "Interest Engine Cluster (K8s)") {
         
-        Container(ingest, "Ingestion Service", "Kotlin/Flink", "Consumes Ledger events, aggregates daily positions, updates State Store.")
-        Container(calc, "Calculation Core", "Kotlin", "The brain. Fetches state, applies math rules, computes accruals & deltas.")
-        Container(post, "Posting Service", "Kotlin", "Batches interest entries and reliably sends them to the Ledger.")
-        Container(api, "Management API", "Spring Boot", "Exposes endpoints for Config, Audit, and Manual Triggers.")
+        Container(ingest, "Ingestion Service", "Kotlin/Spring", "Consumes transactions, updates 1,024 partitioned state stores locally.")
+        Container(calc, "Calculation Core", "Kotlin/Virtual Threads", "Pure domain logic. Computes accruals and delta-adjustments.")
+        Container(post, "Posting Service", "Kotlin/Spring", "Batches interest events (Avro) to the Ledger.")
         
-        ContainerDb(state_store, "State Store", "Apache Pinot / RocksDB", "Read-optimized view of Daily Balances (Partitioned).")
-        ContainerDb(config_db, "Config DB", "PostgreSQL", "Stores Products, Rates, and Rules.")
-        ContainerDb(audit_log, "Audit Log", "PostgreSQL/Timescale", "Immutable history of all accrual records.")
+        ContainerDb(state_store, "Partitioned State", "PostgreSQL/Pinot", "Sharded storage for Account Balances (Historical & Current).")
+        ContainerDb(audit_log, "Audit Log", "TimescaleDB", "Immutable append-only log of every math step.")
+        
+        Container(ai_anomaly, "Anomaly Detector", "Python/Flink", "AI Sidecar: statistically scores outbound events for risk.")
     }
 
-    System_Ext(kafka, "Kafka Cluster", "Event Backbone")
+    System_Ext(ledger, "Thin Ledger", "Source of Truth")
+    System_Ext(kafka, "Kafka Cluster", "Event Backbone (1024 Partitions)")
+    System_Ext(registry, "Schema Registry", "Governs Avro Schemas")
 
-    Rel(kafka, ingest, "Stream: tx-events", "Consumer Group")
-    Rel(ingest, state_store, "Upsert Balance", "KV/OLAP")
+    Rel(ledger, kafka, "Publishes Tx", "Avro")
+    Rel(kafka, ingest, "Consumes Batch", "Group: cie-ingest")
     
-    Rel(api, config_db, "Read/Write Configs", "JDBC")
+    Rel(ingest, registry, "Validates Schema", "HTTPS")
+    Rel(ingest, state_store, "Upsert Balance", "JDBC / Shard-Key")
     
-    Rel(calc, state_store, "Fetch History", "Query")
-    Rel(calc, config_db, "Fetch Rules", "JDBC + Cache")
-    Rel(calc, audit_log, "Append Accrual", "Batch Insert")
-    Rel(calc, post, "Notify Ready", "Internal Event")
+    Rel(ingest, calc, "Invokes Logic", "In-Memory")
+    Rel(calc, audit_log, "Writes Trace", "Async")
     
-    Rel(post, kafka, "Publish: interest-commands", "Transactional Producer")
+    Rel(calc, post, "Emits Result", "Internal Channel")
+    Rel(post, ai_anomaly, "Stream Check", "Async Sidecar")
+    Rel(post, kafka, "Publishes Interest", "Avro")
 ```
 ## 3. Interface Standards
 * **Async API:** CloudEvents 1.0.2.

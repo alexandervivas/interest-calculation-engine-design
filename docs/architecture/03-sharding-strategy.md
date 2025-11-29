@@ -35,6 +35,46 @@ We divide the entire account universe into **N Logical Partitions**.
 5.  **Context:** The Pod queries the DB, requesting data *only* for Partition 42.
 6.  **Locality:** Because the DB is also physically clustered by Partition 42, the disk seek is sequential and fast.
 
+```mermaid
+flowchart TD
+    subgraph Input [Transaction Stream]
+        T1["Tx: Acct-123"]
+        T2["Tx: Acct-999"]
+        T3["Tx: Acct-123"]
+    end
+
+    subgraph Routing [Deterministic Router]
+        H1{"Hash(AcctID) % N"}
+        
+        note1["N = 16 (Local)<br/>N = 1024 (Prod)"]
+        H1 -.-> note1
+    end
+
+    subgraph Kafka [Topic: tx-events]
+        P1[Partition 1]
+        P42[Partition 42]
+        P99[Partition 99]
+    end
+
+    subgraph Consumer ["Pod B (Owns P42)"]
+        Logic[Interest Logic]
+        Cache[L1 Cache: Acct-123]
+        DB[(DB Shard 42)]
+    end
+
+    T1 --> H1
+    T3 --> H1
+    T2 --> H1
+    
+    H1 -- "Hash(123) -> 42" --> P42
+    H1 -- "Hash(999) -> 1" --> P1
+    
+    P42 == Sticky ==> Logic
+    Logic <--> Cache
+    Logic <--> DB
+
+```
+
 ## 4. Handling Data Skew ("The Jumbo Account")
 **Risk:** One corporate account generates 1M transactions/day, lagging Partition 42.
 **Mitigation:**
