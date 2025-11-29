@@ -1,33 +1,39 @@
 # Domain Logic: Product & Rate Configuration
 
-## 1. Configuration Model
-Interest rates are not static scalars. They are **Tiered Structures** versioned by time.
+## 1. The Product Model
+A **Product** is a named configuration template (e.g., "Gold Saver", "30-Year Fixed Mortgage").
+An **Account** is an instance of a Product.
 
-### 1.1 JSON Schema Example
+### 1.1 Product Family (Discriminator)
+Every product belongs to a family that dictates the calculation engine's behavior.
+
+| Family | Direction | Interest Logic | Future Scope? |
+| :--- | :--- | :--- | :--- |
+| **DEPOSIT** | Liability (Bank owes Customer) | `Accrual = Balance * Rate` (Expense) | **In Scope** |
+| **LENDING** | Asset (Customer owes Bank) | `Accrual = Balance * Rate` (Revenue) | *Future* |
+
+## 2. JSON Schema Configuration
+
+We use a polymorphic configuration object. The `productFamily` field determines which extra fields are required.
+
 ```json
 {
   "productId": "SAVINGS_GOLD_V1",
-  "effectiveDate": "2024-01-01T00:00:00Z",
+  "productFamily": "DEPOSIT",  // <--- The Critical Discriminator
   "currency": "USD",
-  "tiers": [
-    {
-      "minBalance": 0,
-      "maxBalance": 10000,
-      "apy": 0.0100  // 1.0%
-    },
-    {
-      "minBalance": 10000.01,
-      "maxBalance": null, // Infinity
-      "apy": 0.0450  // 4.5%
-    }
-  ],
-  "calculationMethod": "SPLIT_TIER" 
-  // SPLIT_TIER = First 10k gets 1%, rest gets 4.5%
-  // ENTIRE_BALANCE = If > 10k, whole amount gets 4.5%
+  
+  // Specific to DEPOSIT family
+  "interestPostingFrequency": "MONTHLY",
+  "compounding": "DAILY",
+  
+  // The Rate Matrix
+  "rateConfig": {
+    "type": "TIERED",
+    "tiers": [
+      { "min": 0, "apy": 0.05 }
+    ]
+  }
 }
 ```
 
-## 2. Versioning Rule
-* Configs are **Append-Only**.
-* To change a rate, you insert a new config row with `effectiveDate = FutureDate`.
-* The Calculation Engine selects the config where `config.effectiveDate <= calculationDate` (Limit 1 Descending).
+**Future Compatibility**: When we add Loans later, we will simply add a new schema for productFamily: "LENDING" which includes fields like amortizationMethod, penaltyRate, and gracePeriodDays.
