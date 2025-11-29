@@ -52,6 +52,32 @@ Please scaffold the infrastructure for Iteration 0 with a focus on "Local Develo
 5. **Validation:**
    Run `docker compose config` to verify the syntax is valid.
 
+6. **AI Reviewer Setup (The Gemini Guardian):**
+   - Create a `.pr_agent.toml` file at the root to configure CodiumAI.
+   - **Model Configuration:**
+     - Set `pr_reviewer.model = "vertex_ai/gemini-1.5-pro"`. (Or `google/gemini-1.5-pro` depending on provider config).
+     - Set `pr_reviewer.require_score_review = true`.
+     - Set `pr_reviewer.enable_auto_approval = false`.
+   
+   - **Custom Instructions (`extra_instructions`):**
+     Add this specific block to force architectural compliance:
+     """
+     You are the Architectural Auditor of the Core Interest Engine.
+     
+     **STRICT ENFORCEMENT PROTOCOL:**
+     
+     1. **ADR-004 (Sharding):** Reject hardcoded partition counts. Code must use `ShardingConfig` (defaults: 16 local / 1024 prod).
+     2. **FR-6 (Precision):** Reject `Double` or `Float` for money. Require `BigDecimal` or `Money` class.
+     3. **ADR-006 (Avro):** Reject JSON serialization. Ensure Avro schemas (`.avsc`) are used.
+     4. **ADR-003 (Backdating):** If logic touches transaction dates, ensure it handles `valueDate < now`.
+     
+     If a PR violates these, comment with "BLOCKER: Violates [Doc Name]".
+     """
+
+   - **GitHub Workflow:**
+     - Create `.github/workflows/pr_agent.yml` that triggers on `pull_request` types `[opened, reopened, synchronize]`.
+     - Ensure it has access to the `GEMINI_API_KEY` or Vertex AI credentials.
+
 ```
 
 ---
