@@ -46,6 +46,14 @@ Your goal is to build a **Modular Monolith** that processes 100M+ accounts/day w
     - **Immutable History:** Never UPDATE `accrual_log`.
     - **Delta Logic:** If correcting the past, INSERT an `ADJUSTMENT` record.
 
+### 4.1 Extensibility (Product Families)
+- **Pattern:** Use the **Strategy Pattern** for interest calculations.
+- **Rule:** Do not hardcode "Deposit" logic into the main service.
+- **Implementation:**
+    - Define `interface InterestStrategy`.
+    - Create `class DepositStrategy : InterestStrategy`.
+    - **Context:** We only implement `DepositStrategy` now, but the code structure MUST support adding `LoanStrategy` later without modifying the core flow.
+ 
 ## 5. CODING STYLE (KOTLIN)
 - **Immutability:** Default to `val`.
 - **DTOs:** Use `data class`.
